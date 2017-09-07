@@ -5,6 +5,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.location.LocationProvider;
+import android.os.Handler;
 import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -14,14 +15,24 @@ import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity implements LocationListener{
     private LocationManager locationManager;
-    private static final long MIN_MILLI_SECONDS = 10000;
-    private static final float MIN_METRE = 1;
+    private double locationX;
+    private double locationY;
+    private double tmpX;
+    private double tmpY;
+
+    private TextView resultTextView;
+    Handler handler;
+    Runnable r;
+
+    private static final long MIN_MILLI_SECONDS = 2000;
+    private static final float MIN_METRE = 3;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         locationManager = (LocationManager)getSystemService(LOCATION_SERVICE);
+        resultTextView = (TextView)findViewById(R.id.resultTextView);
 
         final boolean gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
 
@@ -37,17 +48,36 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
             showMessage("権限がないよ");
             finish();
         }
+
+
+        tmpX = 1024f;
+        handler = new Handler();
+        r = new Runnable() {
+            @Override
+            public void run() {
+                float[] result = new float[3];
+                if(tmpX != 1024f) {
+                    //tmpXがすでに変更されいるとき
+                    Location.distanceBetween(tmpX, tmpY, locationX, locationY, result);
+                    float distance = result[0];
+                    float speed = distance / 3f * 3.6f;
+                    resultTextView.setText(String.format("%.2f km/h", speed));
+                }
+
+                tmpX = locationX;
+                tmpY = locationY;
+
+                handler.removeCallbacks(this);
+                handler.postDelayed(this, 3000);
+            }
+        };
+        handler.post(r);
     }
 
     @Override
     public void onLocationChanged(Location location) {
-        // 緯度の表示
-        TextView ido = (TextView) findViewById(R.id.ido);
-        ido.setText("" + location.getLatitude());
-
-        // 経度の表示
-        TextView keido = (TextView) findViewById(R.id.keido);
-        keido.setText("" + location.getLongitude());
+        locationX = location.getLatitude();
+        locationY = location.getLongitude();
     }
 
     @Override
@@ -72,8 +102,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
 
     @Override
     public void onProviderDisabled(String provider) {
-        showMessage("GPSが使えません");
-        finish();
+        showMessage("機能を利用するためにはGPSを有効にしてください");
     }
     public void showMessage(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
