@@ -13,12 +13,15 @@ import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.LinkedList;
+
 public class MainActivity extends AppCompatActivity implements LocationListener{
     private LocationManager locationManager;
     private double locationX;
     private double locationY;
     private double tmpX;
     private double tmpY;
+    private LinkedList<Float> speedQueue;
 
     private TextView resultTextView;
     Handler handler;
@@ -33,6 +36,12 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
 
         locationManager = (LocationManager)getSystemService(LOCATION_SERVICE);
         resultTextView = (TextView)findViewById(R.id.resultTextView);
+
+        speedQueue = new LinkedList<>();
+        speedQueue.add(0f);
+        speedQueue.add(0f);
+        speedQueue.add(0f);
+        locationX = locationY = 0.0;
 
         final boolean gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
 
@@ -50,19 +59,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
         }
 
 
-        tmpX = 1024f;
         handler = new Handler();
         r = new Runnable() {
             @Override
             public void run() {
                 float[] result = new float[3];
-                if(tmpX != 1024f) {
-                    //tmpXがすでに変更されいるとき
-                    Location.distanceBetween(tmpX, tmpY, locationX, locationY, result);
-                    float distance = result[0];
-                    float speed = distance / 3f * 3.6f;
-                    resultTextView.setText(String.format("%.2f km/h", speed));
-                }
+                Location.distanceBetween(tmpX, tmpY, locationX, locationY, result);
+                float distance = result[0];
+                float speed = speedCalc(distance);
+                resultTextView.setText(String.format("%.2f km/h", speed));
 
                 tmpX = locationX;
                 tmpY = locationY;
@@ -72,6 +77,21 @@ public class MainActivity extends AppCompatActivity implements LocationListener{
             }
         };
         handler.post(r);
+    }
+
+    public float speedCalc(float distance) {
+        float speed = distance / 3f * 3.6f;
+        if(speed > 500f) {
+            speed = 0f;
+        }
+        speedQueue.remove();
+        speedQueue.add(speed);
+        float sum  = 0f;
+        for(Float f: speedQueue) {
+            sum += f;
+        }
+        float result = sum / speedQueue.size();
+        return result;
     }
 
     @Override
